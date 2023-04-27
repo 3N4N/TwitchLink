@@ -1,6 +1,6 @@
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::{env, fs};
-
 
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Secrets {
@@ -50,7 +50,18 @@ pub fn get_vod_link(
   assert!(res.data.len() == 1, "[ERR] Unexpected helix response");
   let thumbnail_url = res.data[0].thumbnail_url.to_string();
 
-  Ok(thumbnail_url)
+  let re = Regex::new(
+    r"https://static-cdn\.jtvnw\.net/cf_vods/([a-z0-9_]*)/([a-z0-9_]*)//thumb/thumb\d-%\{width\}x%\{height\}\.jpg",
+  )?;
+  let caps = re.captures(thumbnail_url.as_str()).unwrap();
+  let vod_link = "https://".to_string()
+    + caps.get(1).unwrap().as_str()
+    + ".cloudfront.net"
+    + "/"
+    + caps.get(2).unwrap().as_str()
+    + "/720p60/index-dvr.m3u8";
+
+  Ok(vod_link)
 }
 
 fn main() {
@@ -58,7 +69,7 @@ fn main() {
   assert!(args.len() == 2, "[ERR] Link not found.");
 
   let vod_id = (&args[1]).to_string();
-  println!("Parsing link: {vod_id}");
+  println!("VOD ID: {vod_id}");
 
   // Read Twitch secrets
   let home_dir = dirs::home_dir()
@@ -67,13 +78,12 @@ fn main() {
     .expect("[ERR] $HOME cannot be accessed")
     .to_string();
   let path = home_dir + "/.TwitchLink/secrets.json";
-  dbg!(&path);
   let data =
     fs::read_to_string(path).expect("[ERR] Unable to read secrets.json");
   let secrets: Secrets =
     serde_json::from_str(&data).expect("[ERR] Unable to parse secrets.json");
-  dbg!(&secrets);
 
-  let vodlink = get_vod_link(vod_id, secrets).expect("[ERR] GET request failed");
-  println!("{:#?}", vodlink);
+  let vodlink =
+    get_vod_link(vod_id, secrets).expect("[ERR] GET request failed");
+  println!("VOD link: {}", vodlink);
 }
