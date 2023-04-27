@@ -1,0 +1,33 @@
+TwitchLink
+==========
+
+Wanna watch a Twitch VOD without the distraction of the Twitch webpage?  Wanna
+watch a VOD locked behind a subscription wall?  TwitchLink is your friend.  Give
+it the VOD ID and TwitchLink will give you back the VOD url you can play with
+your favorite media player.
+
+
+How to Use
+----------
+
+- Get OAuth access token
+  - Goto https://dev.twitch.tv/console
+  - Register an app and get client id and secret
+  - Make a GET request like this
+      curl -X GET 'https://id.twitch.tv/oauth2/token?client_id=<client_id>&client_secret=<client_secret>&grant_type=client_credentials'
+- Save the credentials in $HOME/.TwitchLink/secrets.json in JSON format
+      {
+        "client_id": "<client_id>",
+        "client_secret": "<client_secret>",
+        "oauth_token": "Bearer <oauth_token>"
+      }
+- Get the VOD ID
+  That's the number in the VOD url.
+      VOD URL: https://www.twitch.tv/videos/1804186756
+      VOD ID : 1804186756
+- Run TwitchLink
+  Execute the binary with the VOD ID as the commandline argument.
+      ./TwitchLink 1804186756      # Linux / MacOS
+      .\TwitchLink.exe 1804186756  # Windows
+- Get the VOD link from the output
+- Play the VOD with your favorite media player
