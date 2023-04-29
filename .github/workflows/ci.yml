@@ -6,28 +6,32 @@ on:
       - 'master'
       - 'release-[0-9]+.[0-9]+'
       - 'ci/*'
+
 jobs:
-  Explore-GitHub-Actions:
-    runs-on: ubuntu-latest
-    env:
-      PKG_CONFIG_SYSROOT_DIR: /
-      # PKG_CONFIG_PATH
+  Ubuntu:
+    runs-on: ubuntu-22.04
     steps:
       - name: Check out repository code
         uses: actions/checkout@v3
-      # - name: Add support for MUSL
-      #   run: |
-      #     sudo apt update
-      #     sudo apt install -y musl-tools libssl-dev
-      #     rustup target add x86_64-linux-musl
       - name: Build ${{ github.repository }}
         run: |
-          # cargo build --release --target x86_64-unknown-linux-musl
           docker pull clux/muslrust:stable
           docker run -v $PWD:/volume --rm -t clux/muslrust:stable cargo build --release
-          ls -R target
           ldd target/x86_64-unknown-linux-musl/release/twitchlink
       - uses: actions/upload-artifact@v3
         with:
-          name: twitchlink
+          name: twitchlink-linux64
           path: target/x86_64-unknown-linux-musl/release/twitchlink
+
+  Windows:
+    runs-on: windows-2022
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v3
+      - name: Build ${{ github.repository }}
+        run: |
+          cargo build --release
+      - uses: actions/upload-artifact@v3
+        with:
+          name: twitchlink-win64
+          path: target/release/twitchlink.exe
