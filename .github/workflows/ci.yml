@@ -7,8 +7,12 @@ on:
       - 'ci/*'
 
 jobs:
-  Ubuntu:
-    runs-on: ubuntu-22.04
+  build:
+    name: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ ubuntu-22.04, windows-2022 ]
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Check out repository code
         uses: actions/checkout@v3
@@ -22,30 +26,17 @@ jobs:
             ~/.cargo/git/db/
             target/
           key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock') }}
-      - name: Install MUSL toolchain
+      - if: matrix.os == 'ubuntu-22.04'
+        name: Install MUSL toolchain
         run: |
           sudo apt update
           sudo apt install -y musl-tools
           rustup target add x86_64-unknown-linux-musl
-      - name: Build ${{ github.repository }}
+      - if: matrix.os == 'ubuntu-22.04'
+        name: Build ${{ github.repository }}
         run: |
           cargo build --release --target x86_64-unknown-linux-musl
-
-  Windows:
-    runs-on: windows-2022
-    steps:
-      - name: Check out repository code
-        uses: actions/checkout@v3
-      - name: Cache Cargo
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock') }}
-      - name: Build ${{ github.repository }}
+      - if: matrix.os == 'windows-2022'
+        name: Build ${{ github.repository }}
         run: |
           cargo build --release
