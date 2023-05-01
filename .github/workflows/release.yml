@@ -1,0 +1,39 @@
+name: Release
+on:
+  push:
+    tags:
+      - v[0-9]+.[0-9]+.[0-9]+
+
+jobs:
+  Ubuntu:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v3
+      - name: Install MUSL toolchain
+        run: |
+          sudo apt update
+          sudo apt install -y musl-tools
+          rustup target add x86_64-unknown-linux-musl
+      - name: Build ${{ github.repository }}
+        run: |
+          cargo build --release --target x86_64-unknown-linux-musl
+          file target/x86_64-unknown-linux-musl/release/twitchlink
+      - uses: actions/upload-artifact@v3
+        with:
+          name: twitchlink-linux64
+          path: target/x86_64-unknown-linux-musl/release/twitchlink
+
+  Windows:
+    runs-on: windows-2022
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v3
+      - name: Build ${{ github.repository }}
+        run: |
+          cargo build --release
+      - uses: actions/upload-artifact@v3
+        with:
+          name: twitchlink-win64
+          path: target/release/twitchlink.exe
+
