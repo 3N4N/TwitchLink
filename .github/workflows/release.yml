@@ -5,7 +5,7 @@ on:
       - v[0-9]+.[0-9]+.[0-9]+
 
 jobs:
-  Ubuntu:
+  Linux:
     runs-on: ubuntu-22.04
     steps:
       - name: Check out repository code
@@ -23,6 +23,7 @@ jobs:
         with:
           name: twitchlink-linux64
           path: target/x86_64-unknown-linux-musl/release/twitchlink
+          retention-days: 1
 
   Windows:
     runs-on: windows-2022
@@ -36,4 +37,23 @@ jobs:
         with:
           name: twitchlink-win64
           path: target/release/twitchlink.exe
+          retention-days: 1
 
+  publish:
+    needs: [linux, windows]
+    runs-on: ubuntu-22.04
+    env:
+      GH_REPO: ${{ github.repository }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    permissions:
+      contents: write
+    steps:
+      # Must perform checkout first, since it deletes the target directory
+      # before running, and would therefore delete the downloaded artifacts
+      - uses: actions/checkout@v3
+      - uses: actions/download-artifact@v3
+      - name: Release on GitHub
+        run: |
+          TAG_NAME=${{ github.ref }}
+          TAG_NAME=${TAG_NAME#refs/tags/}
+          gh release create $TAG_NAME --target $GITHUB_SHA twitchlink-linux64/* twitchlink-win64/*
