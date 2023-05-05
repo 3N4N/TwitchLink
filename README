@@ -13,8 +13,8 @@ How to Use
 - Get OAuth access token
   - Goto https://dev.twitch.tv/console
   - Register an app and get client id and secret
-  - Make a GET request like this
-      curl -X GET 'https://id.twitch.tv/oauth2/token?client_id=<client_id>&client_secret=<client_secret>&grant_type=client_credentials'
+  - Make a POST request like this
+      curl -X POST 'https://id.twitch.tv/oauth2/token?client_id=<client_id>&client_secret=<client_secret>&grant_type=client_credentials'
 - Save the credentials in $HOME/.TwitchLink/secrets.json in JSON format
       {
         "client_id": "<client_id>",
