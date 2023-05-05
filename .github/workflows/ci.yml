@@ -12,6 +12,11 @@ jobs:
     strategy:
       matrix:
         os: [ ubuntu-22.04, windows-2022 ]
+        include:
+          - os: ubuntu-22.04
+            target: x86_64-unknown-linux-musl
+          - os: windows-2022
+            target: x86_64-pc-windows-msvc
     runs-on: ${{ matrix.os }}
     steps:
       - name: Check out repository code
@@ -32,11 +37,7 @@ jobs:
           sudo apt update
           sudo apt install -y musl-tools
           rustup target add x86_64-unknown-linux-musl
-      - if: matrix.os == 'ubuntu-22.04'
-        name: Build ${{ github.repository }}
-        run: |
-          cargo build --release --target x86_64-unknown-linux-musl
-      - if: matrix.os == 'windows-2022'
-        name: Build ${{ github.repository }}
-        run: |
-          cargo build --release
+      - name: Build ${{ github.repository }}
+        run: cargo build  --target ${{ matrix.target }}
+      - name: Run unit tests
+        run: cargo test  --target ${{ matrix.target }}
