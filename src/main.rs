@@ -10,12 +10,12 @@ pub struct Secrets {
 }
 
 pub fn get_vod_info(
-  vod_id: String,
+  vod_id: &str,
   secrets: Secrets,
 ) -> Result<String, Box<dyn std::error::Error>> {
   let client = reqwest::blocking::Client::new();
   let res = client
-    .get("https://api.twitch.tv/helix/videos?id=".to_string() + vod_id.as_str())
+    .get("https://api.twitch.tv/helix/videos?id=".to_string() + vod_id)
     .header("Content-Type", "application/json")
     .header("Client-Id", secrets.client_id)
     .header("Authorization", secrets.oauth_token)
@@ -29,7 +29,7 @@ pub fn estimate_vod_link(
   vod_info: String,
 ) -> Result<String, Box<dyn std::error::Error>> {
   #[derive(Serialize, Deserialize)]
-  pub struct Datum {
+  struct Datum {
     #[serde(rename = "id")]
     id: String,
 
@@ -65,13 +65,13 @@ pub fn estimate_vod_link(
     + ".cloudfront.net"
     + "/"
     + caps.get(2).unwrap().as_str()
-    + "/720p60/index-dvr.m3u8";
+    + "/480p30/index-dvr.m3u8";
 
   Ok(vod_link)
 }
 
 pub fn get_vod_link(
-  vod_id: String,
+  vod_id: &str,
   secrets: Secrets,
 ) -> Result<String, Box<dyn std::error::Error>> {
   let vod_info = get_vod_info(vod_id, secrets)?;
@@ -80,28 +80,117 @@ pub fn get_vod_link(
   Ok(vod_link)
 }
 
+// Ref: https://github.com/TwitchRecover/TwitchRecover/blob/ebf0bd413216e6ddcba72e9947b9cadd3110fe6d/src/TwitchRecover.Core/API/API.java#L204
+//
+// FIXME: It requires a client id, but it's using the client id used in
+// TwitchRecover.  It's not the user-provided client id.  The user's client id
+// doesn't seem to work with gql api.  Maybe the client id it expects is a
+// different one.
+pub fn get_stream_info(
+  channel: &str,
+) -> Result<String, Box<dyn std::error::Error>> {
+  let client = reqwest::blocking::Client::new();
+  let res = client
+    .post("https://gql.twitch.tv/gql")
+    .header("Content-Type", "Content-Type: text/plain")
+    .header("Client-Id", "kimne78kx3ncx6brgo4mv6wki5h1ko")
+    .body("{\"operationName\": \"PlaybackAccessToken\",\"variables\": {\"isLive\": true,\"login\": \"".to_string() + channel + "\",\"isVod\": false,\"vodID\": \"\",\"playerType\": \"channel_home_live\"},\"extensions\": {\"persistedQuery\": {\"version\": 1,\"sha256Hash\": \"0828119ded1c13477966434e15800ff57ddacf13ba1911c129dc2200705b0712\"}}}")
+    .send()?
+    .text()?;
+
+  Ok(res)
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct StreamPlaybackAccessToken {
+  #[serde(rename = "value")]
+  value: String,
+
+  #[serde(rename = "signature")]
+  signature: String,
+}
+
+pub fn get_stream_token(
+  stream_info: String,
+) -> Result<StreamPlaybackAccessToken, Box<dyn std::error::Error>> {
+  #[derive(Serialize, Deserialize)]
+  struct StreamInfo {
+    #[serde(rename = "data")]
+    data: Data,
+  }
+
+  #[derive(Serialize, Deserialize)]
+  struct Data {
+    #[serde(rename = "streamPlaybackAccessToken")]
+    stream_playback_access_token: StreamPlaybackAccessToken,
+  }
+
+  let res: StreamInfo = serde_json::from_str(&stream_info)?;
+  let access_token = res.data.stream_playback_access_token;
+
+  Ok(access_token)
+}
+
+pub fn print_stream_link(
+  channel: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+  let stream_info = get_stream_info(channel)?;
+  let token = get_stream_token(stream_info)?;
+  // println!("{}", token.value);
+  // println!("{}", token.signature);
+
+  let req = "https://usher.ttvnw.net/api/channel/hls/".to_string()
+    + channel
+    + ".m3u8?sig="
+    + token.signature.as_str()
+    + "&token="
+    + token.value.as_str()
+    + "&allow_source=true&allow_audio_only=true";
+
+  let resp = reqwest::blocking::get(req).expect("usher.ttvnw.net request failed");
+  let body = resp.text().expect("usher.ttvnw.net response body invalid");
+
+  let split = body.split("\n");
+  for s in split {
+    if &s[0..5] == "https" {
+      println!("{}", s);
+    } else if &s[0..7] != "#EXTM3U" && &s[24..32] == "GROUP-ID" {
+      println!("{}", s);
+    }
+  }
+
+  Ok(())
+}
+
 fn main() {
   let args: Vec<String> = env::args().collect();
   assert!(args.len() == 2, "[ERR] Link not found.");
 
-  let vod_id = (&args[1]).to_string();
-  println!("VOD ID: {vod_id}");
+  let user_arg = &args[1];
+  println!("VOD ID: {user_arg}");
 
-  // Read Twitch secrets
-  let home_dir = dirs::home_dir()
-    .expect("[ERR] $HOME unset")
-    .to_str()
-    .expect("[ERR] $HOME cannot be accessed")
-    .to_string();
-  let path = home_dir + "/.TwitchLink/secrets.json";
-  let data =
-    fs::read_to_string(path).expect("[ERR] Unable to read secrets.json");
-  let secrets: Secrets =
-    serde_json::from_str(&data).expect("[ERR] Unable to parse secrets.json");
+  let want_vod = false;
+  if want_vod {
+    // Read Twitch secrets
+    let home_dir = dirs::home_dir()
+      .expect("[ERR] $HOME unset")
+      .to_str()
+      .expect("[ERR] $HOME cannot be accessed")
+      .to_string();
+    let path = home_dir + "/.TwitchLink/secrets.json";
+    let data =
+      fs::read_to_string(path).expect("[ERR] Unable to read secrets.json");
+    let secrets: Secrets =
+      serde_json::from_str(&data).expect("[ERR] Unable to parse secrets.json");
 
-  let vodlink =
-    get_vod_link(vod_id, secrets).expect("[ERR] GET request failed");
-  println!("VOD link: {}", vodlink);
+    // Retrieve VOD link
+    let vodlink =
+      get_vod_link(user_arg, secrets).expect("[ERR] GET request failed");
+    println!("VOD link: {}", vodlink);
+  } else {
+    // Retrieve stream link
+    print_stream_link(user_arg).expect("[ERR] GET request failed");
+  }
 }
 
 #[cfg(test)]
@@ -136,7 +225,8 @@ mod tests {
   "pagination": {}
 }"#;
 
-    let vod_link = estimate_vod_link(vod_info.to_string()).expect("[FAIL] Cannot estimate VOD link.");
+    let vod_link = estimate_vod_link(vod_info.to_string())
+      .expect("[FAIL] Cannot estimate VOD link.");
     assert_eq!(vod_link, "https://d1m7jfoe9zdc1j.cloudfront.net/51b4df78ae6d180ce585_elizabethzaks_48380328493_1682528600/720p60/index-dvr.m3u8");
   }
 }
