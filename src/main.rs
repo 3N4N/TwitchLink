@@ -65,7 +65,7 @@ pub fn estimate_vod_link(
     + ".cloudfront.net"
     + "/"
     + caps.get(2).unwrap().as_str()
-    + "/480p30/index-dvr.m3u8";
+    + "/720p60/index-dvr.m3u8";
 
   Ok(vod_link)
 }
@@ -243,6 +243,7 @@ mod tests {
 
     let vod_link = estimate_vod_link(vod_info.to_string())
       .expect("[FAIL] Cannot estimate VOD link.");
+    println!("{}", vod_link);
     assert_eq!(vod_link, "https://d1m7jfoe9zdc1j.cloudfront.net/51b4df78ae6d180ce585_elizabethzaks_48380328493_1682528600/720p60/index-dvr.m3u8");
   }
 }
