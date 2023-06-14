@@ -70,14 +70,13 @@ pub fn estimate_vod_link(
   Ok(vod_link)
 }
 
-pub fn get_vod_link(
-  vod_id: &str,
-  secrets: Secrets,
-) -> Result<String, Box<dyn std::error::Error>> {
-  let vod_info = get_vod_info(vod_id, secrets)?;
-  let vod_link = estimate_vod_link(vod_info)?;
+pub fn get_vod_link(vod_id: &str, secrets: Secrets) -> String {
+  let vod_info =
+    get_vod_info(vod_id, secrets).expect("[ERR] Could not get VOD info");
+  let vod_link =
+    estimate_vod_link(vod_info).expect("[ERR] Could not estimate VOD link");
 
-  Ok(vod_link)
+  vod_link
 }
 
 // Ref: https://github.com/TwitchRecover/TwitchRecover/blob/ebf0bd413216e6ddcba72e9947b9cadd3110fe6d/src/TwitchRecover.Core/API/API.java#L204
@@ -131,11 +130,11 @@ pub fn get_stream_token(
   Ok(access_token)
 }
 
-pub fn print_stream_link(
-  channel: &str,
-) -> Result<(), Box<dyn std::error::Error>> {
-  let stream_info = get_stream_info(channel)?;
-  let token = get_stream_token(stream_info)?;
+pub fn print_stream_links(channel: &str) {
+  let stream_info =
+    get_stream_info(channel).expect("[ERR] Could not get stream info");
+  let token =
+    get_stream_token(stream_info).expect("[ERR] Could not get stream token");
   // println!("{}", token.value);
   // println!("{}", token.signature);
 
@@ -147,19 +146,36 @@ pub fn print_stream_link(
     + token.value.as_str()
     + "&allow_source=true&allow_audio_only=true";
 
-  let resp = reqwest::blocking::get(req).expect("usher.ttvnw.net request failed");
-  let body = resp.text().expect("usher.ttvnw.net response body invalid");
+  let resp =
+    reqwest::blocking::get(req).expect("[ERR] usher.ttvnw.net request failed");
+  let body = resp
+    .text()
+    .expect("[ERR] usher.ttvnw.net response body invalid");
 
   let split = body.split("\n");
   for s in split {
     if &s[0..5] == "https" {
       println!("{}", s);
     } else if &s[0..7] != "#EXTM3U" && &s[24..32] == "GROUP-ID" {
+      // TODO: Print only the relevant part, e.g., 720p60
       println!("{}", s);
     }
   }
+}
 
-  Ok(())
+pub fn get_secrets() -> Secrets {
+  let home_dir = dirs::home_dir()
+    .expect("[ERR] $HOME unset")
+    .to_str()
+    .expect("[ERR] $HOME cannot be accessed")
+    .to_string();
+  let path = home_dir + "/.TwitchLink/secrets.json";
+  let data =
+    fs::read_to_string(path).expect("[ERR] Unable to read secrets.json");
+  let secrets: Secrets =
+    serde_json::from_str(&data).expect("[ERR] Unable to parse secrets.json");
+
+  secrets
 }
 
 fn main() {
@@ -169,27 +185,27 @@ fn main() {
   let user_arg = &args[1];
   println!("VOD ID: {user_arg}");
 
-  let want_vod = false;
+  // Guess if user_arg is for vod or stream.
+  // VOD arg should be all numeric.
+  // Stream arg should be alphanumeric.
+  let mut want_vod = true;
+  for c in user_arg.chars() {
+    if c.is_alphabetic() {
+      want_vod = false;
+      break;
+    }
+  }
+
   if want_vod {
-    // Read Twitch secrets
-    let home_dir = dirs::home_dir()
-      .expect("[ERR] $HOME unset")
-      .to_str()
-      .expect("[ERR] $HOME cannot be accessed")
-      .to_string();
-    let path = home_dir + "/.TwitchLink/secrets.json";
-    let data =
-      fs::read_to_string(path).expect("[ERR] Unable to read secrets.json");
-    let secrets: Secrets =
-      serde_json::from_str(&data).expect("[ERR] Unable to parse secrets.json");
+    // Read user secrets
+    let secrets = get_secrets();
 
     // Retrieve VOD link
-    let vodlink =
-      get_vod_link(user_arg, secrets).expect("[ERR] GET request failed");
+    let vodlink = get_vod_link(user_arg, secrets);
     println!("VOD link: {}", vodlink);
   } else {
     // Retrieve stream link
-    print_stream_link(user_arg).expect("[ERR] GET request failed");
+    print_stream_links(user_arg);
   }
 }
 
