@@ -93,7 +93,8 @@ pub fn print_vod_links(vod_id: &str, secrets: Secrets) {
       .expect("[ERR] Could not send get request to tentative vod link")
       .status();
     if res.is_success() {
-      println!("VOD link: {}", &vod_link);
+      println!("VOD: {}", &vod_link);
+      break;
     }
   }
 }
