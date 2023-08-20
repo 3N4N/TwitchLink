@@ -174,10 +174,12 @@ pub fn print_stream_links(channel: &str) {
   let split = body.split("\n");
   for s in split {
     if &s[0..5] == "https" {
-      println!("{}", s);
+      println!("{}\n", s);
     } else if &s[0..7] != "#EXTM3U" && &s[24..32] == "GROUP-ID" {
-      // TODO: Print only the relevant part, e.g., 720p60
-      println!("{}", s);
+      let re = Regex::new(r#"NAME="(.+?)""#)
+        .expect("[ERR] Could not init regex for capturing stream format");
+      let caps = re.captures(s).unwrap();
+      print!("{}: ", caps.get(1).unwrap().as_str());
     }
   }
 }
