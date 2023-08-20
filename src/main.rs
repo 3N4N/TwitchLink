@@ -25,9 +25,7 @@ pub fn get_vod_info(
   Ok(res)
 }
 
-pub fn estimate_vod_link(
-  vod_info: String,
-) -> Result<String, Box<dyn std::error::Error>> {
+pub fn print_vod_links(vod_id: &str, secrets: Secrets) {
   #[derive(Serialize, Deserialize)]
   struct Datum {
     #[serde(rename = "id")]
@@ -52,31 +50,52 @@ pub fn estimate_vod_link(
     data: Vec<Datum>,
   }
 
-  let res: VideosResponse = serde_json::from_str(&vod_info)?;
-  assert!(res.data.len() == 1, "[ERR] Unexpected helix response");
-  let thumbnail_url = res.data[0].thumbnail_url.to_string();
+  const DOMAINS: [&str; 14] = [
+    "https://d1m7jfoe9zdc1j.cloudfront.net",
+    "https://d1mhjrowxxagfy.cloudfront.net",
+    "https://d1ymi26ma8va5x.cloudfront.net",
+    "https://d2aba1wr3818hz.cloudfront.net",
+    "https://d2e2de1etea730.cloudfront.net",
+    "https://d2nvs31859zcd8.cloudfront.net",
+    "https://d2vjef5jvl6bfs.cloudfront.net",
+    "https://d3aqoihi2n8ty8.cloudfront.net",
+    "https://d3c27h4odz752x.cloudfront.net",
+    "https://d3vd9lfkzbru3h.cloudfront.net",
+    "https://ddacn6pr5v0tl.cloudfront.net",
+    "https://dgeft87wbj63p.cloudfront.net",
+    "https://dqrpb9wgowsf5.cloudfront.net",
+    "https://ds0h3roq6wcgc.cloudfront.net",
+  ];
 
-  let re = Regex::new(
-    r"https://static-cdn\.jtvnw\.net/cf_vods/([a-z0-9_]*)/([a-z0-9_]*)//thumb/thumb\d-%\{width\}x%\{height\}\.jpg",
-  )?;
-  let caps = re.captures(thumbnail_url.as_str()).unwrap();
-  let vod_link = "https://".to_string()
-    + caps.get(1).unwrap().as_str()
-    + ".cloudfront.net"
-    + "/"
-    + caps.get(2).unwrap().as_str()
-    + "/720p60/index-dvr.m3u8";
-
-  Ok(vod_link)
-}
-
-pub fn get_vod_link(vod_id: &str, secrets: Secrets) -> String {
   let vod_info =
     get_vod_info(vod_id, secrets).expect("[ERR] Could not get VOD info");
-  let vod_link =
-    estimate_vod_link(vod_info).expect("[ERR] Could not estimate VOD link");
+  let res: VideosResponse =
+    serde_json::from_str(&vod_info).expect("[ERR] Could not parse vod info");
+  assert!(res.data.len() == 1, "[ERR] Unexpected helix response");
+  let thumbnail_url = res.data[0].thumbnail_url.to_string();
+  // println!("{}", &thumbnail_url);
 
-  vod_link
+  let re = Regex::new(
+    r"https://static-cdn\.jtvnw\.net/cf_vods/([a-z0-9_]+)/([a-z0-9_]+)//?thumb/.+%\{width\}x%\{height\}\.jpe?g",
+  ).expect("[ERR] Could not init regex for capturing thumbnail url");
+  let caps = re.captures(thumbnail_url.as_str()).unwrap();
+  for domain in DOMAINS.iter() {
+    let vod_link = domain.to_string()
+      + "/"
+      + caps.get(2).unwrap().as_str()
+      + "/720p60/index-dvr.m3u8";
+    // println!("{}", &vod_link);
+
+    let client = reqwest::blocking::Client::new();
+    let res = client
+      .get(&vod_link)
+      .send()
+      .expect("[ERR] Could not send get request to tentative vod link")
+      .status();
+    if res.is_success() {
+      println!("VOD link: {}", &vod_link);
+    }
+  }
 }
 
 // Ref: https://github.com/TwitchRecover/TwitchRecover/blob/ebf0bd413216e6ddcba72e9947b9cadd3110fe6d/src/TwitchRecover.Core/API/API.java#L204
@@ -183,7 +202,7 @@ fn main() {
   assert!(args.len() == 2, "[ERR] Link not found.");
 
   let user_arg = &args[1];
-  println!("VOD ID: {user_arg}");
+  println!("ID: {user_arg}");
 
   // Guess if user_arg is for vod or stream.
   // VOD arg should be all numeric.
@@ -199,12 +218,8 @@ fn main() {
   if want_vod {
     // Read user secrets
     let secrets = get_secrets();
-
-    // Retrieve VOD link
-    let vodlink = get_vod_link(user_arg, secrets);
-    println!("VOD link: {}", vodlink);
+    print_vod_links(user_arg, secrets);
   } else {
-    // Retrieve stream link
     print_stream_links(user_arg);
   }
 }
