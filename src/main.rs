@@ -86,15 +86,11 @@ pub fn print_vod_links(vod_id: &str, secrets: Secrets) {
       + "/720p60/index-dvr.m3u8";
     // println!("{}", &vod_link);
 
-    let client = reqwest::blocking::Client::new();
-    let res = client
-      .get(&vod_link)
-      .send()
-      .expect("[ERR] Could not send get request to tentative vod link")
-      .status();
-    if res.is_success() {
-      println!("VOD: {}", &vod_link);
-      break;
+    if let Ok(response) = reqwest::blocking::get(&vod_link) {
+      if response.status().is_success() {
+        println!("VOD: {}", &vod_link);
+        break;
+      }
     }
   }
 }
