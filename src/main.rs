@@ -83,7 +83,7 @@ pub fn print_vod_links(vod_id: &str, secrets: Secrets) {
     let vod_link = domain.to_string()
       + "/"
       + caps.get(2).unwrap().as_str()
-      + "/720p60/index-dvr.m3u8";
+      + "/chunked/index-dvr.m3u8";
     // println!("{}", &vod_link);
 
     if let Ok(response) = reqwest::blocking::get(&vod_link) {
@@ -200,7 +200,7 @@ fn main() {
   let args: Vec<String> = env::args().collect();
   assert!(args.len() == 2, "[ERR] Link not found.");
 
-  let user_arg = &args[1];
+  let user_arg = &args[1].to_lowercase();
   println!("ID: {user_arg}");
 
   // Guess if user_arg is for vod or stream.
