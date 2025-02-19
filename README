@@ -1,0 +1,26 @@
+TwitchLink
+==========
+
+Wanna watch a Twitch VOD without the distraction of the Twitch webpage?  Wanna
+watch a VOD locked behind a subscription wall?  TwitchLink is your friend.  Give
+it the VOD ID and TwitchLink will give you back the VOD url you can play with
+your favorite media player.
+
+
+How to Use
+----------
+
+- Get OAuth access token
+  - Goto https://dev.twitch.tv/console
+  - Register an app and get client id and secret
+  - Make a POST request like this
+      curl -X POST 'https://id.twitch.tv/oauth2/token?client_id=<client_id>&client_secret=<client_secret>&grant_type=client_credentials'
+- Put your credentials in 'twitchlink/main.py' script
+- Get the VOD ID
+  That's the number in the VOD url.
+      VOD URL: https://www.twitch.tv/videos/1804186756
+      VOD ID : 1804186756
+- Run TwitchLink
+      python twitchlink/main.py --vod 1804186756
+- Get the VOD/stream link from the output
+- Play the VOD/stream with your favorite media player
